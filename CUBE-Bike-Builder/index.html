@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CUBE Nuroad Bike Builder 3D</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="theme-dark">
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">CUBE</span>
+    <span class="brand-sub">Nuroad Bike Builder <b>3D</b></span>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn ghost" id="btnConfig">Meine Konfiguration</button>
+    <button class="btn ghost" id="btnCompare">Preisvergleich</button>
+    <button class="btn ghost" id="btnTheme" title="Hell / Dunkel">◐</button>
+    <button class="btn ghost" id="btnFullscreen" title="Vollbild">⤢</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ============================ LINKES PANEL ========================== -->
+  <aside class="panel panel-left" id="panelLeft">
+    <section class="block">
+      <h2>Fahrrad</h2>
+      <div id="bikeList" class="bike-list"></div>
+    </section>
+
+    <section class="block">
+      <h2>Farbe</h2>
+      <div id="colorList" class="color-list"></div>
+      <p class="hint" id="colorHint"></p>
+    </section>
+
+    <section class="block">
+      <h2>Zubehör</h2>
+      <div id="accessoryList" class="acc-list"></div>
+    </section>
+
+    <section class="block">
+      <h2>Konfiguration</h2>
+      <div class="btn-row">
+        <button class="btn small" id="btnSave">Speichern</button>
+        <button class="btn small" id="btnLoad">Laden</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn small" id="btnExport">Exportieren</button>
+        <button class="btn small" id="btnImport">Importieren</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn small danger" id="btnReset">Zurücksetzen</button>
+      </div>
+      <input type="file" id="fileImport" accept="application/json" hidden>
+    </section>
+  </aside>
+
+  <!-- ============================ 3D-ANSICHT ============================ -->
+  <section class="stage">
+    <div id="viewport" class="viewport"></div>
+
+    <div class="stage-toolbar">
+      <div class="tool-group" role="group" aria-label="Kameraansichten">
+        <button class="tool" data-view="side">Seite</button>
+        <button class="tool" data-view="front">Vorne</button>
+        <button class="tool" data-view="rear">Hinten</button>
+        <button class="tool" data-view="top">Oben</button>
+        <button class="tool active" data-view="threequarter">3/4</button>
+      </div>
+      <div class="tool-group">
+        <button class="tool" id="btnAnim" title="Antrieb animieren">▶ Animation</button>
+        <button class="tool" id="btnAutoRotate" title="Automatische Rotation">⟳ Auto</button>
+        <button class="tool" id="btnResetCam" title="Kamera zurücksetzen">Reset</button>
+        <button class="tool" id="btnShot" title="Screenshot erstellen">📷 Screenshot</button>
+      </div>
+    </div>
+
+    <div class="gear-hud" id="gearHud">
+      <div class="gear-main"><span id="gearRatio">–</span></div>
+      <div class="gear-sub"><span id="gearSpeed">–</span></div>
+      <div class="gear-sub">Trittfrequenz
+        <button class="gear-btn" id="cadDown">−</button>
+        <span id="cadValue">75</span> U/min
+        <button class="gear-btn" id="cadUp">+</button>
+      </div>
+      <div class="gear-hint">Auf die Schalthebel klicken: <b>links</b> = hochschalten, <b>rechts</b> = runterschalten</div>
+    </div>
+
+    <div class="stage-badge" id="stageBadge"></div>
+    <div class="stage-help">Linksklick drehen · Mausrad zoomen · Rechtsklick verschieben · Touch: 1 Finger drehen, 2 Finger zoomen/verschieben</div>
+  </section>
+
+  <!-- ============================ RECHTES PANEL ========================= -->
+  <aside class="panel panel-right">
+    <section class="block">
+      <h2 id="sumTitle">–</h2>
+      <div class="model-meta" id="sumMeta"></div>
+      <a class="btn primary wide" id="btnBikePage" href="#" target="_blank" rel="noopener">CUBE Produktseite öffnen</a>
+    </section>
+
+    <section class="block">
+      <h3>Preisübersicht</h3>
+      <div class="price-table" id="priceTable"></div>
+      <div class="total-row">
+        <span>Gesamtpreis</span>
+        <strong id="totalPrice">–</strong>
+      </div>
+      <p class="hint" id="priceHint"></p>
+    </section>
+
+    <section class="block">
+      <h3>Gewicht</h3>
+      <div class="weight-row"><span id="weightValue">–</span></div>
+    </section>
+
+    <section class="block">
+      <h3>Originalausstattung <span class="lock-tag">fest</span></h3>
+      <div class="spec-table" id="specTable"></div>
+    </section>
+
+    <section class="block">
+      <button class="btn primary wide" id="btnBuyAll">Alle Artikel bei CUBE öffnen</button>
+      <p class="hint">Öffnet die offiziellen CUBE-Seiten des Fahrrads und des gewählten Zubehörs in neuen Tabs. Ein automatisches Befüllen eines CUBE-Warenkorbs ist über die öffentliche Website nicht möglich und wird hier deshalb auch nicht vorgetäuscht.</p>
+    </section>
+  </aside>
+</main>
+
+<!-- ================================ MODALS ============================== -->
+<div class="modal-backdrop" id="modal" hidden>
+  <div class="modal">
+    <button class="modal-close" id="modalClose">✕</button>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="data/bikes.js"></script>
+<script src="data/accessories.js"></script>
+<script src="js/materials.js"></script>
+<script src="js/bike-builder.js"></script>
+<script src="js/accessory-builder.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
