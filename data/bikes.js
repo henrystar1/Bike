@@ -226,10 +226,10 @@ window.CUBE_BIKES = [
     articleNo: "1135500",
     colors: [
       { id: "inkgrey-grey", name: "inkgrey\u00b4n\u00b4grey", articleNo: "1135500",
-        hex: "#3a4046", accent: "#8b9299", forkHex: "#23272b",
+        hex: "#47576b", accent: "#93a0ae", forkHex: "#445366",
         url: "https://www.cube.eu/bikes/gravel/nuroad" },
       { id: "lindgreen-matcha", name: "lindgreen\u00b4n\u00b4matcha",
-        hex: "#a8c34a", accent: "#6f8a3d", forkHex: "#41501f",
+        hex: "#a2bf3f", accent: "#5d7331", forkHex: "#9db93c",
         url: "https://www.cube.eu/bikes/gravel/nuroad" }
     ],
     drivetrain: { chainrings: [48, 31], cassette: [36, 32, 28, 24, 21, 19, 17, 15, 14, 13, 12, 11] },

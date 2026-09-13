@@ -36,19 +36,19 @@
       g.moveTo(x + 2, y); g.lineTo(x + w, y + 1); g.lineTo(x + w - 2, y + h); g.lineTo(x, y + h - 1);
       g.closePath(); g.fill();
     }
-    for (var i = 0; i < 32; i++) {
-      var x = i * 16;
-      knob(x + 2, 26, 11, 16, '#33343a');   // Mittelstollen
-      knob(x + 10, 50, 11, 16, '#2c2d33');
-      knob(x + 2, 74, 11, 16, '#33343a');
-      knob(x - 4, 8, 9, 12, '#26272c');     // Schulterstollen
-      knob(x + 8, 100, 9, 12, '#26272c');
+    for (var i = 0; i < 16; i++) {
+      var x = i * 32;
+      knob(x + 3, 22, 22, 24, '#3a3b42');   // grobe Mittelstollen
+      knob(x + 19, 54, 22, 24, '#313239');
+      knob(x + 3, 86, 22, 20, '#3a3b42');
+      knob(x - 6, 2, 18, 18, '#2a2b30');    // Schulterstollen
+      knob(x + 14, 108, 18, 18, '#2a2b30');
     }
     g.fillStyle = 'rgba(0,0,0,.55)';
     g.fillRect(0, 0, 512, 6); g.fillRect(0, 122, 512, 6);
     var t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(26, 1);
+    t.repeat.set(15, 1);
     t.anisotropy = 8;
     return t;
   }
@@ -60,17 +60,17 @@
     g.fillStyle = '#3a3a3a';
     g.fillRect(0, 0, 512, 128);
     g.fillStyle = '#ffffff';
-    for (var i = 0; i < 32; i++) {
-      var x = i * 16;
-      g.fillRect(x + 2, 26, 11, 16);
-      g.fillRect(x + 10, 50, 11, 16);
-      g.fillRect(x + 2, 74, 11, 16);
-      g.fillRect(x - 4, 8, 9, 12);
-      g.fillRect(x + 8, 100, 9, 12);
+    for (var i = 0; i < 16; i++) {
+      var x = i * 32;
+      g.fillRect(x + 3, 22, 22, 24);
+      g.fillRect(x + 19, 54, 22, 24);
+      g.fillRect(x + 3, 86, 22, 20);
+      g.fillRect(x - 6, 2, 18, 18);
+      g.fillRect(x + 14, 108, 18, 18);
     }
     var t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(26, 1);
+    t.repeat.set(15, 1);
     return t;
   }
 
@@ -102,6 +102,10 @@
     M.alu = new THREE.MeshStandardMaterial({ color: 0xb9bcc0, metalness: 0.95, roughness: 0.28 });
     M.aluDark = new THREE.MeshStandardMaterial({ color: 0x5a5e63, metalness: 0.9, roughness: 0.35 });
     M.steel = new THREE.MeshStandardMaterial({ color: 0xd6d9dc, metalness: 1.0, roughness: 0.16 });
+    // eigenes Speichenmaterial: wird bei hoher Drehzahl transparenter (Bewegungsunschaerfe)
+    M.spoke = new THREE.MeshStandardMaterial({
+      color: 0xd6d9dc, metalness: 1.0, roughness: 0.18, transparent: true, opacity: 1
+    });
     M.rotor = new THREE.MeshStandardMaterial({
       color: 0xc9ccd0, metalness: 1.0, roughness: 0.22, side: THREE.DoubleSide
     });
@@ -110,7 +114,7 @@
       color: 0x141517, metalness: 0.35, roughness: 0.22, clearcoat: 0.8
     });
     M.rubber = new THREE.MeshStandardMaterial({
-      map: tireTex, bumpMap: tireBump, bumpScale: 0.004,
+      map: tireTex, bumpMap: tireBump, bumpScale: 0.0075,
       color: 0xffffff, metalness: 0.0, roughness: 0.95, envMapIntensity: 0.25
     });
     M.rubberSide = new THREE.MeshStandardMaterial({ color: 0x171719, metalness: 0.0, roughness: 0.85 });

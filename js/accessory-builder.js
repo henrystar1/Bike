@@ -36,19 +36,35 @@
     return m;
   }
 
-  /* Schutzblech-/Bogenblech als Zylinderschale */
+  /* Schutzblech als Bogen mit sichtbaren Seitenwangen.
+     Winkelbezug: theta 0 = unten, PI = oben (Zylinder um die Z-Achse gedreht). */
   function arcShell(radius, width, thetaStart, thetaLength, mat, thickness) {
     var g = new THREE.Group();
+    var th = thickness || 0.012;
     var outer = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius, width, 48, 1, true, thetaStart, thetaLength), mat);
+      new THREE.CylinderGeometry(radius, radius, width, 56, 1, true, thetaStart, thetaLength), mat);
     outer.rotation.x = Math.PI / 2;
     outer.castShadow = true;
     g.add(outer);
     var inner = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius - (thickness || 0.006), radius - (thickness || 0.006),
-        width * 0.96, 48, 1, true, thetaStart, thetaLength), mat);
+      new THREE.CylinderGeometry(radius - th, radius - th, width, 56, 1, true, thetaStart, thetaLength), mat);
     inner.rotation.x = Math.PI / 2;
     g.add(inner);
+    // Seitenwangen: RingGeometry liegt in der XY-Ebene, Winkel um -90 Grad versetzt
+    var ring = new THREE.RingGeometry(radius - th, radius, 56, 1,
+      thetaStart - Math.PI / 2, thetaLength);
+    [1, -1].forEach(function (sd) {
+      var side = new THREE.Mesh(ring, mat);
+      side.position.z = sd * width / 2;
+      side.material = mat;
+      g.add(side);
+      // umlaufende Kante, damit das Blech auch von der Seite Volumen hat
+      var lip = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius, radius - th, 0.006, 56, 1, true, thetaStart, thetaLength), mat);
+      lip.rotation.x = Math.PI / 2;
+      lip.position.z = sd * (width / 2 - 0.002);
+      g.add(lip);
+    });
     return g;
   }
 
@@ -224,22 +240,22 @@
   /* --------------------------- Schutzbleche ------------------------------- */
   A.mudguards = function (M, mt) {
     var g = new THREE.Group();
-    var R = mt.wheelRadius + 0.022;
-    var W = mt.tireWidth + 0.022;
+    var R = mt.wheelRadius + 0.026;
+    var W = mt.tireWidth + 0.030;
 
     // Hinten: von oben nach hinten unten
-    var rear = arcShell(R, W, Math.PI * 0.45, Math.PI * 1.25, M.black, 0.005);
+    var rear = arcShell(R, W, Math.PI * 0.52, Math.PI * 0.96, M.black, 0.013);
     rear.position.copy(mt.rearHub);
     g.add(rear);
     // Front: ueber dem Vorderrad
-    var front = arcShell(R, W, Math.PI * 0.68, Math.PI * 0.78, M.black, 0.005);
+    var front = arcShell(R, W, Math.PI * 0.66, Math.PI * 0.72, M.black, 0.013);
     front.position.copy(mt.frontHub);
     g.add(front);
 
     // Streben
     [1, -1].forEach(function (s) {
       g.add(tube(V(mt.rearHub.x, mt.rearHub.y, s * 0.055),
-        V(mt.rearHub.x - 0.16, mt.rearHub.y + 0.30, s * 0.03), 0.0028, 0.0028, M.steel, 6));
+        V(mt.rearHub.x - 0.24, mt.rearHub.y + 0.20, s * 0.035), 0.0032, 0.0032, M.steel, 6));
       g.add(tube(V(mt.rearHub.x, mt.rearHub.y, s * 0.055),
         V(mt.rearHub.x + 0.22, mt.rearHub.y + 0.24, s * 0.03), 0.0028, 0.0028, M.steel, 6));
       g.add(tube(V(mt.frontHub.x, mt.frontHub.y, s * 0.05),

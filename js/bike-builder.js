@@ -103,7 +103,7 @@
       var from = V(Math.cos(aAng) * 0.026, Math.sin(aAng) * 0.026, side * 0.032);
       var to = V(Math.cos(bAng) * (rimR - 0.008), Math.sin(bAng) * (rimR - 0.008), 0);
       var d = new THREE.Vector3().subVectors(to, from);
-      var sp = new THREE.Mesh(spokeGeo, M.steel);
+      var sp = new THREE.Mesh(spokeGeo, M.spoke);
       sp.scale.y = d.length();
       sp.position.copy(from).addScaledVector(d, 0.5);
       sp.quaternion.setFromUnitVectors(V(0, 1, 0), d.clone().normalize());
@@ -112,12 +112,24 @@
 
     // Bremsscheibe (Center-Lock Optik)
     var rotorR = opts.rotorRadius;
-    var rotor = new THREE.Mesh(new THREE.RingGeometry(rotorR * 0.55, rotorR, 64), M.rotor);
+    var rotor = new THREE.Mesh(new THREE.RingGeometry(rotorR * 0.62, rotorR, 64), M.rotor);
     rotor.position.z = -0.045;
     g.add(rotor);
-    var rotorArms = new THREE.Mesh(new THREE.RingGeometry(0.022, rotorR * 0.56, 10), M.rotor);
-    rotorArms.position.z = -0.045;
-    g.add(rotorArms);
+    var carrier = new THREE.Mesh(new THREE.RingGeometry(0.024, rotorR * 0.42, 32), M.aluDark);
+    carrier.position.z = -0.0455;
+    g.add(carrier);
+    var armGeo = new THREE.BoxGeometry(rotorR * 0.30, 0.008, 0.0018);
+    var arms = new THREE.InstancedMesh(armGeo, M.rotor, 6);
+    var am = new THREE.Matrix4(), aq = new THREE.Quaternion(), ap = new THREE.Vector3(), as = V(1, 1, 1);
+    for (var ai = 0; ai < 6; ai++) {
+      var aa = (ai / 6) * Math.PI * 2;
+      ap.set(Math.cos(aa) * rotorR * 0.5, Math.sin(aa) * rotorR * 0.5, -0.045);
+      aq.setFromAxisAngle(V(0, 0, 1), aa);
+      am.compose(ap, aq, as);
+      arms.setMatrixAt(ai, am);
+    }
+    arms.frustumCulled = false;
+    g.add(arms);
     var lockring = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.008, 18), M.aluDark);
     lockring.rotation.x = Math.PI / 2;
     lockring.position.z = -0.045;
@@ -288,8 +300,17 @@
       disc.rotation.x = Math.PI / 2;
       disc.position.z = cogZ[i];
       cassette.add(disc);
-      var teeth = new THREE.Mesh(new THREE.TorusGeometry(r - 0.0015, 0.0022, 5, Math.min(64, Math.max(16, t))), M.steel);
-      teeth.position.z = cogZ[i];
+      var tg = new THREE.BoxGeometry(0.0032, 0.0062, 0.0016);
+      var teeth = new THREE.InstancedMesh(tg, M.steel, t);
+      var tm = new THREE.Matrix4(), tq = new THREE.Quaternion(), tp = new THREE.Vector3(), ts = V(1, 1, 1);
+      for (var k = 0; k < t; k++) {
+        var ang = (k / t) * Math.PI * 2;
+        tp.set(Math.cos(ang) * (r - 0.0012), Math.sin(ang) * (r - 0.0012), cogZ[i]);
+        tq.setFromAxisAngle(V(0, 0, 1), ang + Math.PI / 2);
+        tm.compose(tp, tq, ts);
+        teeth.setMatrixAt(k, tm);
+      }
+      teeth.frustumCulled = false;
       cassette.add(teeth);
     });
     var freehub = new THREE.Mesh(new THREE.CylinderGeometry(0.0165, 0.0165, 0.042, 18), M.aluDark);
@@ -297,32 +318,66 @@
     freehub.position.z = 0.038;
     cassette.add(freehub);
 
-    /* --- Schaltwerk --- */
+    /* --- Schaltwerk: sitzt fest am Schaltauge und schwenkt von dort --- */
+    var hanger = V(hub.x + 0.026, hub.y - 0.030, 0.070);   // Schaltauge am Ausfallende
     var rd = new THREE.Group();
+    rd.position.copy(hanger);
     g.add(rd);
-    var rdBody = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.052, 0.03), M.blackGloss);
-    rdBody.castShadow = true;
-    rd.add(rdBody);
-    var rdArm = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.055, 0.018), M.blackGloss);
-    rdArm.position.set(0.004, -0.04, 0);
-    rd.add(rdArm);
+
+    // B-Knuckle (fest am Rahmen) inkl. Befestigungsschraube
+    var bKnuckle = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.040, 0.024), M.blackGloss);
+    bKnuckle.castShadow = true;
+    rd.add(bKnuckle);
+    var bBolt = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.022, 12), M.aluDark);
+    bBolt.rotation.x = Math.PI / 2;
+    bBolt.position.z = -0.016;
+    rd.add(bBolt);
+
+    // Parallelogramm-Arm: laenge/Richtung wird beim Schalten neu ausgerichtet
+    var armGeoU = new THREE.BoxGeometry(1, 0.030, 0.022);   // Einheitslaenge in X
+    var pArm = new THREE.Mesh(armGeoU, M.blackGloss);
+    pArm.castShadow = true;
+    rd.add(pArm);
+    var pArm2 = new THREE.Mesh(new THREE.BoxGeometry(1, 0.010, 0.008), M.aluDark);
+    rd.add(pArm2);
+
+    // P-Knuckle + Kaefig (schwenkt nach vorn/hinten je nach Kettenlaenge)
+    var knuckle = new THREE.Group();
+    rd.add(knuckle);
+    var pBody = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.034, 0.022), M.blackGloss);
+    knuckle.add(pBody);
     var cage = new THREE.Group();
-    cage.position.set(0.006, -0.062, 0);
-    rd.add(cage);
-    var cagePlate = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.088, 0.004), M.aluDark);
-    cagePlate.position.set(0.008, -0.028, 0.006);
+    knuckle.add(cage);
+    var cagePlate = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.092, 0.0035), M.aluDark);
+    cagePlate.position.set(0.008, -0.038, 0.008);
+    cagePlate.rotation.z = -0.16;
     cage.add(cagePlate);
-    var pulleyGeo = new THREE.CylinderGeometry(0.0165, 0.0165, 0.007, 20);
+    var cagePlate2 = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.092, 0.0035), M.aluDark);
+    cagePlate2.position.set(0.008, -0.038, -0.008);
+    cagePlate2.rotation.z = -0.16;
+    cage.add(cagePlate2);
+    var pulleyGeo = new THREE.CylinderGeometry(0.0165, 0.0165, 0.0075, 20);
     pulleyGeo.rotateX(Math.PI / 2);
     var pulleyTop = new THREE.Mesh(pulleyGeo, M.aluDark);
     var pulleyBot = new THREE.Mesh(pulleyGeo, M.aluDark);
-    pulleyBot.position.set(0.016, -0.075, 0);
+    var CAGE_LEN = 0.078;
+    pulleyBot.position.set(0.014, -CAGE_LEN, 0);
     cage.add(pulleyTop, pulleyBot);
+
+    // Schaltzug zum Rahmen
+    var cableGeoU = new THREE.CylinderGeometry(0.0022, 0.0022, 1, 6);
+    var rdCable = new THREE.Mesh(cableGeoU, M.black);
+    rd.add(rdCable);
 
     /* --- Umwerfer (nur bei 2-fach) --- */
     var fd = null;
     if (rings.length > 1) {
-      fd = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.052, 0.038), M.blackGloss);
+      fd = new THREE.Group();
+      var fdCage = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.052, 0.062), M.blackGloss);
+      fd.add(fdCage);
+      var fdArm = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.04, 0.016), M.aluDark);
+      fdArm.position.set(-0.014, 0.035, -0.018);
+      fd.add(fdArm);
       g.add(fd);
     }
 
@@ -332,25 +387,49 @@
 
     var state = { front: 0, rear: Math.max(0, Math.floor(cogs.length / 2)) };
 
-    function pulleyWorld(local) {
-      return V(rd.position.x + cage.position.x + local.x,
-        rd.position.y + cage.position.y + local.y, rd.position.z + local.z);
-    }
-
     function rebuildChain() {
       var rRing = teethRadius(rings[state.front]);
       var zRing = ringZ[state.front];
       var rCog = teethRadius(cogs[state.rear]);
       var zCog = cogZ[state.rear];
 
-      // Schaltwerk unter das gewaehlte Ritzel setzen
-      rd.position.set(hub.x + 0.048, hub.y - rCog - 0.052, zCog + 0.004);
-      var gp = V(rd.position.x + cage.position.x, rd.position.y + cage.position.y, rd.position.z);
-      var tp = V(gp.x + 0.016, gp.y - 0.075, gp.z);
+      /* Fuehrungsroellchen haelt konstanten Abstand zum gewaehlten Ritzel.
+         Das Schaltwerk bleibt am Schaltauge, nur der Arm richtet sich neu aus. */
+      var gpAng = 4.36;                                   // ca. 250 Grad: hinten unten
+      var gpR = rCog + 0.052;
+      var gp = V(hub.x + Math.cos(gpAng) * gpR, hub.y + Math.sin(gpAng) * gpR, zCog + 0.010);
+
+      // Arm vom Schaltauge zum P-Knuckle
+      var local = gp.clone().sub(hanger);
+      var len = local.length();
+      var dirA = local.clone().normalize();
+      pArm.scale.x = Math.max(0.02, len);
+      pArm.position.copy(local).multiplyScalar(0.5);
+      pArm.quaternion.setFromUnitVectors(V(1, 0, 0), dirA);
+      pArm2.scale.x = pArm.scale.x;
+      pArm2.position.copy(pArm.position).add(V(0, 0.022, 0));
+      pArm2.quaternion.copy(pArm.quaternion);
+      rdCable.scale.y = 0.06;
+      rdCable.position.set(-0.012, 0.030, -0.004);
+      rdCable.rotation.z = 0.5;
+      knuckle.position.copy(local);
+
+      /* Kaefig neigt sich nach vorn/hinten: grosses Ritzel schluckt mehr Kette,
+         der Kaefig dreht dann nach vorn, kleines Ritzel laesst ihn zurueckschwenken. */
+      var rMid = teethRadius((cogs[0] + cogs[cogs.length - 1]) / 2);
+      var cageAng = (rCog - rMid) * 13.5;
+      cage.rotation.z = cageAng;
+
+      // Position des Spannroellchens nach der Kaefigdrehung
+      var ca = Math.cos(cageAng), sa = Math.sin(cageAng);
+      var tp = V(gp.x + (0.014 * ca + CAGE_LEN * sa),
+        gp.y + (0.014 * sa - CAGE_LEN * ca), gp.z);
 
       if (fd) {
-        fd.position.set(bb.x + 0.012, bb.y + rRing + 0.038, zRing + 0.006);
-        fd.rotation.z = -0.12;
+        var rBig = teethRadius(rings[0]);
+        fd.position.set(bb.x + 0.014, bb.y + rBig + 0.030, ringZ[0] + 0.004);
+        fd.rotation.set(0, state.front === 0 ? 0.0 : 0.26, -0.10);
+        fd.position.z = ringZ[state.front] + 0.010;
       }
 
       var ring2d = { x: bb.x, y: bb.y }, cog2d = { x: hub.x, y: hub.y };
@@ -367,14 +446,14 @@
       pts = pts.concat(arcPoints(hub.x, hub.y, rCog, tan.upper.a2, 4.36, true, zCog));
       // 4) hinunter zum oberen Schaltroellchen
       a = pts[pts.length - 1];
-      b = V(gp.x + Math.cos(2.44) * 0.0165, gp.y + Math.sin(2.44) * 0.0165, gp.z);
+      b = V(gp.x + Math.cos(2.44) * 0.019, gp.y + Math.sin(2.44) * 0.019, gp.z);
       pts = pts.concat(straight(a, b, 3), [b]);
-      pts = pts.concat(arcPoints(gp.x, gp.y, 0.0165, 2.44, -1.22, false, gp.z));
+      pts = pts.concat(arcPoints(gp.x, gp.y, 0.019, 2.44, -1.22, false, gp.z));
       // 5) zum unteren Spannroellchen
       a = pts[pts.length - 1];
-      b = V(tp.x + Math.cos(1.75) * 0.0165, tp.y + Math.sin(1.75) * 0.0165, tp.z);
+      b = V(tp.x + Math.cos(1.75 + cageAng) * 0.019, tp.y + Math.sin(1.75 + cageAng) * 0.019, tp.z);
       pts = pts.concat(straight(a, b, 2), [b]);
-      pts = pts.concat(arcPoints(tp.x, tp.y, 0.0165, 1.75, 5.06, true, tp.z));
+      pts = pts.concat(arcPoints(tp.x, tp.y, 0.019, 1.75 + cageAng, 5.06 + cageAng, true, tp.z));
       // 6) Untertrum nach vorn zum Kettenblatt
       a = pts[pts.length - 1];
       b = V(bb.x + Math.cos(tan.lower.a1) * rRing, bb.y + Math.sin(tan.lower.a1) * rRing, zRing);
@@ -388,6 +467,7 @@
     return {
       group: g, crank: crank, cassette: cassette, chain: chain,
       rd: rd, cage: cage, fd: fd, state: state,
+      pulleys: [pulleyTop, pulleyBot],
       gearing: { chainrings: rings, cassette: cogs },
       ratio: function () { return rings[state.front] / cogs[state.rear]; },
       ringRadius: function () { return teethRadius(rings[state.front]); },
@@ -519,20 +599,20 @@
 
     // Eckpunkte der Rahmengeometrie (Meter)
     var P = {
-      bb: V(0, 0.278),
+      bb: V(0, 0.282),
       rearHub: V(-0.425, 0.352),
-      frontHub: V(0.605, 0.352),
-      seatTop: V(hpa ? -0.150 : -0.158, hpa ? 0.812 : 0.800),
-      headBottom: V(0.505, 0.615),
-      headTop: V(0.455, 0.778)
+      frontHub: V(0.615, 0.352),
+      seatTop: V(hpa ? -0.150 : -0.157, hpa ? 0.822 : 0.812),
+      headBottom: V(0.487, 0.732),
+      headTop: V(0.433, 0.892)
     };
-    P.downTubeHead = new THREE.Vector3().lerpVectors(P.headBottom, P.headTop, 0.32);
+    P.downTubeHead = new THREE.Vector3().lerpVectors(P.headBottom, P.headTop, 0.30);
     P.seatStayTop = new THREE.Vector3().lerpVectors(P.seatTop, P.bb, 0.10);
     var steer = new THREE.Vector3().subVectors(P.headTop, P.headBottom).normalize();
-    P.stemStart = P.headTop.clone().addScaledVector(steer, 0.052);
-    P.bar = V(0.556, 0.848);
+    P.stemStart = P.headTop.clone().addScaledVector(steer, 0.055);
+    P.bar = V(0.542, 0.938);
     var seatDir = new THREE.Vector3().subVectors(P.seatTop, P.bb).normalize();
-    P.seatpostTop = P.seatTop.clone().addScaledVector(seatDir, 0.215);
+    P.seatpostTop = P.seatTop.clone().addScaledVector(seatDir, 0.245);
 
     var group = new THREE.Group();
     var frame = new THREE.Group();
@@ -581,6 +661,59 @@
       frame.add(dropout);
     });
 
+    // Kettenstrebenschutz (rechts, wie am Original)
+    frame.add(curvedTube([
+      V(-0.055, P.bb.y + 0.004, 0.048),
+      V(-0.17, P.bb.y + 0.020, 0.070),
+      V(-0.30, 0.318, 0.066)
+    ], 0.0152, M.black, 18));
+
+    // Flaschenhalter-Gewinde am Unterrohr und Sitzrohr
+    [0.34, 0.44].forEach(function (t) {
+      var pB = new THREE.Vector3().lerpVectors(P.bb, P.downTubeHead, t);
+      var nrm = V(-(P.downTubeHead.y - P.bb.y), P.downTubeHead.x - P.bb.x, 0).normalize();
+      var boss = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.006, 10), M.aluDark);
+      boss.position.copy(pB).addScaledVector(nrm, rDown * 0.92);
+      boss.quaternion.setFromUnitVectors(V(0, 1, 0), nrm);
+      frame.add(boss);
+    });
+
+    // Leitungseinlaesse am Steuerrohr / Zugfuehrung zum Schaltwerk
+    frame.add(curvedTube([
+      V(P.headTop.x - 0.02, P.headTop.y - 0.03, 0.017),
+      V(0.30, P.seatTop.y - 0.02, 0.020),
+      V(P.seatTop.x + 0.02, P.seatTop.y - 0.012, 0.018),
+      V(-0.26, 0.60, 0.030),
+      V(P.rearHub.x + 0.02, P.rearHub.y + 0.045, 0.040)
+    ], 0.0032, M.black, 30));
+
+    // Bremsleitung zur Hinterradbremse
+    frame.add(curvedTube([
+      V(P.headTop.x - 0.02, P.headTop.y - 0.035, -0.014),
+      V(0.28, P.seatTop.y - 0.028, -0.016),
+      V(P.seatTop.x + 0.03, P.seatTop.y - 0.02, -0.016),
+      V(-0.27, 0.60, -0.034),
+      V(P.rearHub.x - 0.05, P.rearHub.y + 0.075, -0.045)
+    ], 0.0032, M.black, 30));
+
+    // Steuerrohr-Badge
+    var badge = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.004, 16), M.paintAccent);
+    badge.position.copy(new THREE.Vector3().lerpVectors(P.headBottom, P.headTop, 0.62)).add(V(0.021, 0, 0));
+    badge.rotation.z = Math.PI / 2;
+    frame.add(badge);
+
+    // Steckachsen
+    [P.rearHub, P.frontHub].forEach(function (h) {
+      var ax = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, 0.135, 12), M.aluDark);
+      ax.rotation.x = Math.PI / 2;
+      ax.position.copy(h);
+      frame.add(ax);
+      var head = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.012, 12), M.aluDark);
+      head.rotation.x = Math.PI / 2;
+      head.position.copy(h).setZ(-0.066);
+      frame.add(head);
+    });
+
     // Bremssattel hinten
     var rCal = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.062, 0.026), M.aluDark);
     rCal.position.set(P.rearHub.x - 0.062, P.rearHub.y + 0.055, -0.045);
@@ -589,26 +722,27 @@
 
     // Gabel
     var fork = new THREE.Group();
-    var crown = P.headBottom.clone().addScaledVector(steer, -0.028);
+    var crown = P.headBottom.clone().addScaledVector(steer, -0.022);
     fork.add(tube(P.headBottom.clone().addScaledVector(steer, 0.05), crown, 0.0165, 0.021, forkMat, 16));
-    var crownBox = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.065), forkMat);
+    var crownBox = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.045, 0.068), forkMat);
     crownBox.position.copy(crown);
     crownBox.rotation.z = -0.28;
     crownBox.castShadow = true;
     fork.add(crownBox);
     [1, -1].forEach(function (side) {
       fork.add(curvedTube([
-        V(crown.x, crown.y - 0.005, side * 0.028),
-        V(crown.x + 0.028, crown.y - 0.085, side * 0.046),
-        V(crown.x + 0.062, crown.y - 0.175, side * 0.05),
-        V(P.frontHub.x, P.frontHub.y, side * 0.05)
-      ], 0.0125, forkMat, 26));
+        V(crown.x, crown.y - 0.004, side * 0.030),
+        V(crown.x + 0.012, crown.y - 0.115, side * 0.050),
+        V(crown.x + 0.042, crown.y - 0.245, side * 0.054),
+        V(P.frontHub.x - 0.012, P.frontHub.y + 0.030, side * 0.052),
+        V(P.frontHub.x, P.frontHub.y, side * 0.050)
+      ], 0.0132, forkMat, 34));
       var fd = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.028, 0.012), M.aluDark);
       fd.position.set(P.frontHub.x, P.frontHub.y, side * 0.052);
       fork.add(fd);
     });
-    var fCal = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.06, 0.026), M.aluDark);
-    fCal.position.set(P.frontHub.x - 0.03, P.frontHub.y + 0.075, -0.045);
+    var fCal = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.066, 0.028), M.aluDark);
+    fCal.position.set(P.frontHub.x - 0.026, P.frontHub.y + 0.082, -0.048);
     fCal.rotation.z = -0.15;
     fork.add(fCal);
     frame.add(fork);

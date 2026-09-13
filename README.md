@@ -42,6 +42,12 @@ Datenbank** benötigt. three.js liegt lokal unter `vendor/`.
   `data/bikes.js`), Kettenblatt- und Ritzeldurchmesser werden daraus mit der
   1/2"-Kettenteilung berechnet. Ein Nuroad Race mit 48/31T und 11-36 sieht
   deshalb anders aus als ein Nuroad Pro mit 40T und 11-50.
+* **Gangnummerierung:** Gang 1 = größtes Ritzel (leicht/langsam), höchster Gang =
+  kleinstes Ritzel (schwer/schnell). Beim Nuroad Race 2027 ergibt 48×11 bei
+  70 U/min rund 40 km/h, 31×36 rund 8 km/h.
+* Bei hoher Raddrehzahl werden die Speichen transparenter dargestellt – sonst
+  entsteht durch die Bildwiederholrate ein Stroboskop-Effekt, bei dem das Rad
+  scheinbar stillsteht oder rückwärts läuft.
 * Die Trittfrequenz lässt sich in der Gang-Anzeige zwischen 40 und 120 U/min
   einstellen; die angezeigte Geschwindigkeit folgt der Übersetzung.
 
@@ -190,8 +196,10 @@ behauptet nichts anderes.
 
 ## Bekannte Grenzen
 
-* Die 3D-Modelle sind realistisch proportioniert, aber keine 1:1-Abbildung der
-  echten CUBE-Rahmen (z. B. Rohrprofile, Schweißnähte, Decals).
+* Die 3D-Modelle sind realistisch proportioniert (Radstand 1040 mm, Tretlager-
+  absenkung 70 mm, Gabel mit realistischer Einbauhöhe und 50 mm Vorbiegung),
+  aber keine 1:1-Abbildung der echten CUBE-Rahmen. Schriftzüge und Logos werden
+  bewusst nicht nachgebildet.
 * Rahmengrößen werden nicht abgebildet; dargestellt wird eine mittlere Größe.
 * Gewichte werden nur addiert, wenn Hersteller-Gewichtsangaben vorliegen.
 

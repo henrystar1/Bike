@@ -48,7 +48,7 @@
     var dt = b.drivetrain || {};
     return {
       profile: b.geometry === 'hpa' ? 'hpa' : 'superlite',
-      carbonFork: /C:62|Full Carbon|Carbon/i.test(text),
+      carbonFork: false,   // Nuroad-Gabeln sind lackiert (Farbwert forkHex aus den Farbdaten)
       chainrings: dt.chainrings,
       cassette: dt.cassette,
       rotorRadius: /180\/180/.test(text) ? 0.09 : 0.08,
@@ -119,7 +119,7 @@
 
   /* --------------------- Animation, Kette, Schaltung --------------------- */
 
-  var anim = { running: false, cadence: 75 };
+  var anim = { running: false, cadence: 70 };
 
   function drivetrain() { return current.bike && current.bike.drivetrain; }
 
@@ -131,11 +131,13 @@
     var wheelOmega = (anim.cadence * 2 * Math.PI / 60) * (ring / cog);
     var kmh = wheelOmega * 0.352 * 3.6;
     $('gearRatio').textContent = ring + 'T \u00d7 ' + cog + 'T';
-    var gearNo = d.gearing.cassette.length - d.state.rear;
+    var gearNo = d.state.rear + 1;   // Gang 1 = groesstes Ritzel
     $('gearSpeed').textContent = 'Gang ' + gearNo + '/' + d.gearing.cassette.length +
       ' \u00b7 ' + kmh.toFixed(1).replace('.', ',') + ' km/h';
     $('cadValue').textContent = anim.cadence;
   }
+
+  function vChainOf(d, w) { return w * d.ringRadius(); }
 
   function animate(dt) {
     var d = drivetrain();
@@ -149,8 +151,12 @@
     current.bike.rearWheel.rotation.z -= wheelOmega * dt;
     current.bike.frontWheel.rotation.z -= wheelOmega * dt;
     d.cassette.rotation.z -= wheelOmega * dt;
-    var vChain = w * d.ringRadius();
+    var pulleyOmega = vChainOf(d, w) / 0.0165;
+    d.pulleys.forEach(function (p) { p.rotation.z -= pulleyOmega * dt; });
+    var vChain = vChainOf(d, w);
     d.chain.advance(-(vChain * dt) / d.chain.length);
+    // Speichen werden bei hoher Drehzahl unschaerfer, sonst entsteht ein Stroboskop-Effekt
+    M.spoke.opacity = Math.max(0.22, Math.min(1, 1 - (Math.abs(wheelOmega) - 12) / 34));
   }
 
   function shift(which, dir) {
@@ -635,6 +641,7 @@
       anim.running = !anim.running;
       this.classList.toggle('active', anim.running);
       this.textContent = anim.running ? '⏸ Animation' : '▶ Animation';
+      if (!anim.running) M.spoke.opacity = 1;
       updateGearHud();
     };
     $('cadUp').onclick = function () { anim.cadence = Math.min(120, anim.cadence + 5); updateGearHud(); };
